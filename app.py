@@ -1,50 +1,82 @@
-import tkinter as tk
-from tkinter import messagebox
 import cv2
 import face_recognition
+import tkinter as tk
+from tkinter import messagebox, simpledialog
 import os
-import sqlite3
-import csv
-from datetime import datetime
+import pickle
+import numpy as np
+import datetime
 
-# Database setup
-conn = sqlite3.connect('attendance.db')
-c = conn.cursor()
-c.execute("""
-    CREATE TABLE IF NOT EXISTS attendance (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,
-        date TEXT,
-        time TEXT
-    )
-""")
-conn.commit()
-
-# Load known faces
+# Load known faces if exists
 known_encodings = []
 known_names = []
+if os.path.exists("known_faces.pkl"):
+    with open("known_faces.pkl", "rb") as f:
+        data = pickle.load(f)
+        known_encodings = data["encodings"]
+        known_names = data["names"]
 
-for filename in os.listdir("known_faces"):
-    if filename.endswith(".jpg") or filename.endswith(".png"):
-        image = face_recognition.load_image_file(f"known_faces/{filename}")
-        encoding = face_recognition.face_encodings(image)
-        if encoding:
-            known_encodings.append(encoding[0])
-            known_names.append(os.path.splitext(filename)[0])
+# Save attendance
+attendance_file = "attendance.csv"
 
-# Mark attendance
+
 def mark_attendance(name):
-    now = datetime.now()
-    date = now.strftime("%Y-%m-%d")
-    time = now.strftime("%H:%M:%S")
-    c.execute("SELECT * FROM attendance WHERE name=? AND date=?", (name, date))
-    if c.fetchone() is None:
-        c.execute("INSERT INTO attendance (name, date, time) VALUES (?, ?, ?)", (name, date, time))
-        conn.commit()
-        print(f"[INFO] Marked attendance for {name}")
+    now = datetime.datetime.now()
+    with open(attendance_file, "a") as f:
+        f.write(f"{name},{now.strftime('%Y-%m-%d %H:%M:%S')}\n")
 
-# Recognition and attendance
-def recognize_face():
+
+# Register new face
+def register_face():
+    name = simpledialog.askstring("Register Face", "Enter name:")
+    if not name:
+        return
+
+    encodings = []
+    cap = cv2.VideoCapture(0)
+    registered = 0
+
+    messagebox.showinfo(
+        "Registering", f"Please look at the camera. Registering {name}..."
+    )
+
+    while registered < 5:
+        ret, frame = cap.read()
+        if not ret:
+            continue
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        boxes = face_recognition.face_locations(rgb)
+
+        if boxes:
+            encoding = face_recognition.face_encodings(rgb, boxes)[0]
+            encodings.append(encoding)
+            registered += 1
+            cv2.putText(
+                frame,
+                f"Sample {registered}/5",
+                (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1,
+                (0, 255, 0),
+                2,
+            )
+            cv2.imshow("Register Face", frame)
+            cv2.waitKey(1000)
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+    known_names.extend([name] * len(encodings))
+    known_encodings.extend(encodings)
+
+    with open("known_faces.pkl", "wb") as f:
+        pickle.dump({"names": known_names, "encodings": known_encodings}, f)
+
+    messagebox.showinfo("Success", f"{name} has been registered.")
+
+
+# Face recognition
+def recognize_faces():
     cap = cv2.VideoCapture(0)
     recognized = set()
 
@@ -52,59 +84,62 @@ def recognize_face():
         ret, frame = cap.read()
         if not ret:
             break
-        rgb_frame = frame[:, :, ::-1]
-        face_locations = face_recognition.face_locations(rgb_frame)
-        face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
 
-        for face_encoding, face_location in zip(face_encodings, face_locations):
-            matches = face_recognition.compare_faces(known_encodings, face_encoding)
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        boxes = face_recognition.face_locations(rgb)
+        encodings = face_recognition.face_encodings(rgb, boxes)
+
+        for encoding, box in zip(encodings, boxes):
+            matches = face_recognition.compare_faces(known_encodings, encoding)
             name = "Unknown"
 
             if True in matches:
-                match_index = matches.index(True)
-                name = known_names[match_index]
+                matched_idxs = [i for i, b in enumerate(matches) if b]
+                counts = {}
+                for i in matched_idxs:
+                    name = known_names[i]
+                    counts[name] = counts.get(name, 0) + 1
+                name = max(counts, key=counts.get)
+
                 if name not in recognized:
                     mark_attendance(name)
                     recognized.add(name)
 
-            top, right, bottom, left = face_location
+            top, right, bottom, left = box
             cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
-            cv2.putText(frame, name, (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+            cv2.putText(
+                frame,
+                name,
+                (left, top - 10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (0, 255, 0),
+                2,
+            )
 
-        cv2.imshow("Face Recognition - Press 'q' to stop", frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+        cv2.imshow("Face Recognition", frame)
+        if cv2.waitKey(1) & 0xFF == ord("q"):
             break
 
     cap.release()
     cv2.destroyAllWindows()
 
-# Export attendance to CSV
-def export_csv():
-    try:
-        with open("attendance_export.csv", mode="w", newline="") as file:
-            writer = csv.writer(file)
-            writer.writerow(["ID", "Name", "Date", "Time"])
-            for row in c.execute("SELECT * FROM attendance"):
-                writer.writerow(row)
-        messagebox.showinfo("Export Success", "Attendance exported to attendance_export.csv")
-    except Exception as e:
-        messagebox.showerror("Export Error", f"Failed to export: {e}")
 
-# Tkinter UI
+# GUI setup
 root = tk.Tk()
-root.title("Face Recognition Attendance")
-root.geometry("300x250")
+root.title("Face Attendance App")
 
-label = tk.Label(root, text="Attendance Tracker", font=("Helvetica", 16))
-label.pack(pady=20)
+btn_register = tk.Button(root, text="Register Face", command=register_face)
+btn_register.pack(pady=10)
 
-start_button = tk.Button(root, text="Start Recognition", command=recognize_face)
-start_button.pack(pady=10)
+btn_recognize = tk.Button(root, text="Start Recognition", command=recognize_faces)
+btn_recognize.pack(pady=10)
 
-export_button = tk.Button(root, text="Export to CSV", command=export_csv)
-export_button.pack(pady=5)
+checkbox_vars = [tk.BooleanVar() for _ in range(4)]
+checkbox_labels = ["Option A", "Option B", "Option C", "Option D"]
 
-quit_button = tk.Button(root, text="Quit", command=root.quit)
-quit_button.pack(pady=5)
+for i, label in enumerate(checkbox_labels):
+    cb = tk.Checkbutton(root, text=label, variable=checkbox_vars[i])
+    cb.pack()
 
 root.mainloop()
