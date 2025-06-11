@@ -337,7 +337,7 @@ def export_logs():
 # --- GUI SETUP ---
 root = tk.Tk()
 root.title("Face Recognition Attendance")
-root.geometry("450x700")
+root.geometry("450x730")
 root.configure(bg="#f0f0f0")
 
 main_frame = tk.Frame(root, bg="#f0f0f0", padx=20, pady=20)
@@ -438,6 +438,22 @@ tolerance_slider = tk.Scale(
     bg="#f0f0f0",
 )
 tolerance_slider.pack(fill="x", expand=True)
+
+### --- ADDED FOR DEVELOPER CREDIT --- ###
+# A simple label at the bottom for the developer credit
+credit_text = (
+    f"Developed by Tim Riset SMAN 1 Paguyangan © {datetime.datetime.now().year}"
+)
+credit_label = tk.Label(
+    main_frame,
+    text=credit_text,
+    font=("Helvetica", 8),  # Smaller font for the credit
+    fg="gray",  # Gray color to make it subtle
+    bg="#f0f0f0",
+)
+# Pack it to the bottom of the window
+credit_label.pack(side="bottom", pady=5)
+### ------------------------------------ ###
 
 load_encodings()
 root.mainloop()
