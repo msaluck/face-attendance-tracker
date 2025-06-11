@@ -15,11 +15,6 @@ from tkinter import (
     Entry,
     Button,
 )
-
-# --- REQUIRED FOR LOGOS ---
-from PIL import Image, ImageTk
-
-# --------------------
 from openpyxl import Workbook, load_workbook
 import cv2
 import face_recognition
@@ -35,13 +30,15 @@ os.makedirs(data_dir, exist_ok=True)
 
 # Global variables
 known_encodings = []
+# --- CHANGE: Store a list of dictionaries instead of just names ---
 known_person_data = []
 
 
-# --- CORE FUNCTIONS (No changes in this section) ---
+# --- CORE FUNCTIONS ---
 def save_encodings():
     """Saves the known face encodings and person data to a pickle file."""
     with open(encoding_file, "wb") as f:
+        # --- CHANGE: Save person data dictionary list ---
         pickle.dump((known_encodings, known_person_data), f)
 
 
@@ -50,6 +47,7 @@ def load_encodings():
     global known_encodings, known_person_data
     if os.path.exists(encoding_file):
         with open(encoding_file, "rb") as f:
+            # --- CHANGE: Load person data dictionary list ---
             known_encodings, known_person_data = pickle.load(f)
     else:
         known_encodings = []
@@ -63,6 +61,7 @@ def mark_attendance(person_data):
     time_str = now.strftime("%H:%M:%S")
     file_format = selected_format.get()
 
+    # --- CHANGE: Prepare row with new data ---
     row_data = [
         person_data["nis"],
         person_data["name"],
@@ -93,11 +92,13 @@ def mark_attendance(person_data):
 
 
 def register_face():
-    """Opens a form to get student details before capturing face."""
+    """--- CHANGE: Opens a form to get student details before capturing face. ---"""
+
+    # Create a new window for the registration form
     form_window = Toplevel(root)
     form_window.title("Register New Student")
     form_window.geometry("300x200")
-    form_window.grab_set()
+    form_window.grab_set()  # Modal window
 
     Label(form_window, text="Name:").pack(pady=(10, 0))
     name_entry = Entry(form_window, width=30)
@@ -114,7 +115,7 @@ def register_face():
     def submit_and_capture():
         name = name_entry.get().strip()
         nis = nis_entry.get().strip()
-        class_ = class_entry.get().strip()
+        class_ = class_entry.get().strip()  # Use class_ to avoid keyword conflict
 
         if not name or not nis or not class_:
             messagebox.showerror(
@@ -122,7 +123,9 @@ def register_face():
             )
             return
 
-        form_window.destroy()
+        form_window.destroy()  # Close form before opening camera
+
+        # Proceed with face capture
         capture_face_for_registration({"name": name, "nis": nis, "class": class_})
 
     Button(
@@ -156,6 +159,7 @@ def capture_face_for_registration(person_data):
 
             if encodings:
                 known_encodings.append(encodings[0])
+                # --- CHANGE: Append the whole dictionary ---
                 known_person_data.append(person_data)
                 save_encodings()
                 messagebox.showinfo(
@@ -179,6 +183,7 @@ def recognize_face():
         messagebox.showerror("Error", "Could not open webcam.")
         return
 
+    # --- CHANGE: Use NIS for duplicate checking ---
     todays_attendance_nis = set()
     file_format = selected_format.get()
     date_str = datetime.datetime.now().strftime("%Y-%m-%d")
@@ -188,15 +193,16 @@ def recognize_face():
             wb = load_workbook(attendance_xlsx)
             ws = wb.active
             for row in ws.iter_rows(min_row=2, values_only=True):
+                # Check if row has enough columns before accessing indices
                 if len(row) > 3 and row[3] == date_str:
-                    todays_attendance_nis.add(row[0])
+                    todays_attendance_nis.add(row[0])  # Column 0 is NIS
         elif file_format == "csv" and os.path.exists(attendance_csv):
             with open(attendance_csv, "r") as f:
                 reader = csv.reader(f)
-                next(reader, None)
+                next(reader, None)  # Skip header
                 for row in reader:
                     if len(row) > 3 and row[3] == date_str:
-                        todays_attendance_nis.add(row[0])
+                        todays_attendance_nis.add(row[0])  # Column 0 is NIS
     except Exception as e:
         messagebox.showerror("Error", f"Could not read attendance file: {e}")
 
@@ -228,12 +234,14 @@ def recognize_face():
                 )
                 best_match_index = np.argmin(face_distances)
                 if matches[best_match_index]:
+                    # --- CHANGE: Get full person data ---
                     person_data = known_person_data[best_match_index]
                     display_name = person_data["name"]
 
                     confidence = 1 - face_distances[best_match_index]
                     confidence_str = f"{confidence:.0%}"
 
+                    # --- CHANGE: Check against NIS for duplicates ---
                     if person_data["nis"] not in todays_attendance_nis:
                         mark_attendance(person_data)
                         todays_attendance_nis.add(person_data["nis"])
@@ -295,9 +303,12 @@ def show_logs():
                 for row in reader:
                     content.append(row)
 
+        # Format content for display
         if content:
+            # Simple column formatting
             formatted_content = ""
             for row in content:
+                # Pad each item to align columns
                 formatted_row = (
                     f"{row[0]:<12}{row[1]:<25}{row[2]:<12}{row[3]:<12}{row[4]:<10}\n"
                 )
@@ -337,56 +348,16 @@ def export_logs():
 # --- GUI SETUP ---
 root = tk.Tk()
 root.title("Face Recognition Attendance")
-root.geometry("450x700")
+root.geometry("450x450")
 root.configure(bg="#f0f0f0")
 
 main_frame = tk.Frame(root, bg="#f0f0f0", padx=20, pady=20)
 main_frame.pack(expand=True, fill="both")
 
-### --- UPDATED FOR TWO LOGOS --- ###
-# Create a frame to hold the two logos side-by-side
-logo_frame = tk.Frame(main_frame, bg="#f0f0f0")
-logo_frame.pack(pady=(0, 10), fill="x")
-
-# --- Load and display the left logo ---
-try:
-    logo_image_left = Image.open("logos//logo_left.png")
-    logo_image_left = logo_image_left.resize((167, 110), Image.Resampling.LANCZOS)
-    logo_photo_left = ImageTk.PhotoImage(logo_image_left)
-
-    logo_label_left = tk.Label(logo_frame, image=logo_photo_left, bg="#f0f0f0")
-    logo_label_left.image = logo_photo_left
-    logo_label_left.pack(side="left", padx=(20, 10))  # Pack on the left
-
-except FileNotFoundError:
-    print("Warning: logo_left.png not found.")
-except Exception as e:
-    print(f"An error occurred loading logo_left.png: {e}")
-
-# --- Load and display the right logo ---
-try:
-    logo_image_right = Image.open("logos//logo_right.png")
-    logo_image_right = logo_image_right.resize((153, 252), Image.Resampling.LANCZOS)
-    logo_photo_right = ImageTk.PhotoImage(logo_image_right)
-
-    logo_label_right = tk.Label(logo_frame, image=logo_photo_right, bg="#f0f0f0")
-    logo_label_right.image = logo_photo_right
-    logo_label_right.pack(side="right", padx=(10, 20))  # Pack on the right
-
-except FileNotFoundError:
-    print("Warning: logo_right.png not found.")
-except Exception as e:
-    print(f"An error occurred loading logo_right.png: {e}")
-### --------------------------- ###
-
-
 title_label = tk.Label(
-    main_frame,
-    text="School Attendance System",
-    font=("Helvetica", 16, "bold"),
-    bg="#f0f0f0",
+    main_frame, text="Attendance System", font=("Helvetica", 16, "bold"), bg="#f0f0f0"
 )
-title_label.pack(pady=(5, 20))  # This places it below the logos with some nice spacing
+title_label.pack(pady=(0, 20))
 
 btn_register = tk.Button(
     main_frame, text="Register New Student", command=register_face, width=30, height=2
