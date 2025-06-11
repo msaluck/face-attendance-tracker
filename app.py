@@ -337,7 +337,7 @@ def export_logs():
 # --- GUI SETUP ---
 root = tk.Tk()
 root.title("Face Recognition Attendance")
-root.geometry("450x730")
+root.geometry("450x750")
 root.configure(bg="#f0f0f0")
 
 main_frame = tk.Frame(root, bg="#f0f0f0", padx=20, pady=20)
@@ -382,9 +382,10 @@ except Exception as e:
 
 title_label = tk.Label(
     main_frame,
-    text="School Attendance System",
+    text="Absensi Sholat Duhur\nSiswa SMAN 1 Paguyangan",  # Added \n for a new line
     font=("Helvetica", 16, "bold"),
     bg="#f0f0f0",
+    justify=tk.CENTER,  # Ensures the lines are centered relative to each other
 )
 title_label.pack(pady=(5, 20))  # This places it below the logos with some nice spacing
 
