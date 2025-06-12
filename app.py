@@ -16,7 +16,7 @@ from tkinter import (
     Button,
 )
 
-# --- REQUIRED FOR LOGOS ---
+# --- ADDED FOR LOGO ---
 from PIL import Image, ImageTk
 
 # --------------------
@@ -337,47 +337,32 @@ def export_logs():
 # --- GUI SETUP ---
 root = tk.Tk()
 root.title("Face Recognition Attendance")
-root.geometry("450x750")
+root.geometry("450x650")  # Increased height for the logo
 root.configure(bg="#f0f0f0")
 
 main_frame = tk.Frame(root, bg="#f0f0f0", padx=20, pady=20)
 main_frame.pack(expand=True, fill="both")
 
-### --- UPDATED FOR TWO LOGOS --- ###
-# Create a frame to hold the two logos side-by-side
-logo_frame = tk.Frame(main_frame, bg="#f0f0f0")
-logo_frame.pack(pady=(0, 10), fill="x")
-
-# --- Load and display the left logo ---
+### --- ADDED FOR LOGO --- ###
 try:
-    logo_image_left = Image.open("logos//logo_left.png")
-    logo_image_left = logo_image_left.resize((167, 110), Image.Resampling.LANCZOS)
-    logo_photo_left = ImageTk.PhotoImage(logo_image_left)
+    # Load the logo image
+    logo_image = Image.open("logos//logo_right_new.png")
+    # Resize the image for the GUI
+    logo_image = logo_image.resize((160, 154), Image.Resampling.LANCZOS)
+    # Convert the image for Tkinter
+    logo_photo = ImageTk.PhotoImage(logo_image)
 
-    logo_label_left = tk.Label(logo_frame, image=logo_photo_left, bg="#f0f0f0")
-    logo_label_left.image = logo_photo_left
-    logo_label_left.pack(side="left", padx=(20, 10))  # Pack on the left
+    # Create a label to display the logo
+    logo_label = tk.Label(main_frame, image=logo_photo, bg="#f0f0f0")
+    # IMPORTANT: Keep a reference to the image to prevent it from being garbage-collected
+    logo_label.image = logo_photo
+    logo_label.pack(pady=(0, 10))
 
 except FileNotFoundError:
-    print("Warning: logo_left.png not found.")
+    print("Warning: logo.png not found. The application will run without a logo.")
 except Exception as e:
-    print(f"An error occurred loading logo_left.png: {e}")
-
-# --- Load and display the right logo ---
-try:
-    logo_image_right = Image.open("logos//logo_right.png")
-    logo_image_right = logo_image_right.resize((153, 252), Image.Resampling.LANCZOS)
-    logo_photo_right = ImageTk.PhotoImage(logo_image_right)
-
-    logo_label_right = tk.Label(logo_frame, image=logo_photo_right, bg="#f0f0f0")
-    logo_label_right.image = logo_photo_right
-    logo_label_right.pack(side="right", padx=(10, 20))  # Pack on the right
-
-except FileNotFoundError:
-    print("Warning: logo_right.png not found.")
-except Exception as e:
-    print(f"An error occurred loading logo_right.png: {e}")
-### --------------------------- ###
+    print(f"An error occurred while loading the logo: {e}")
+### ---------------------- ###
 
 
 title_label = tk.Label(

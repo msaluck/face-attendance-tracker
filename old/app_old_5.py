@@ -16,7 +16,7 @@ from tkinter import (
     Button,
 )
 
-# --- ADDED FOR LOGO ---
+# --- REQUIRED FOR LOGOS ---
 from PIL import Image, ImageTk
 
 # --------------------
@@ -337,38 +337,57 @@ def export_logs():
 # --- GUI SETUP ---
 root = tk.Tk()
 root.title("Face Recognition Attendance")
-root.geometry("450x550")  # Increased height for the logo
+root.geometry("450x750")
 root.configure(bg="#f0f0f0")
 
 main_frame = tk.Frame(root, bg="#f0f0f0", padx=20, pady=20)
 main_frame.pack(expand=True, fill="both")
 
-### --- ADDED FOR LOGO --- ###
-try:
-    # Load the logo image
-    logo_image = Image.open("logos//logo_1.png")
-    # Resize the image for the GUI
-    logo_image = logo_image.resize((153, 252), Image.Resampling.LANCZOS)
-    # Convert the image for Tkinter
-    logo_photo = ImageTk.PhotoImage(logo_image)
+### --- UPDATED FOR TWO LOGOS --- ###
+# Create a frame to hold the two logos side-by-side
+logo_frame = tk.Frame(main_frame, bg="#f0f0f0")
+logo_frame.pack(pady=(0, 10), fill="x")
 
-    # Create a label to display the logo
-    logo_label = tk.Label(main_frame, image=logo_photo, bg="#f0f0f0")
-    # IMPORTANT: Keep a reference to the image to prevent it from being garbage-collected
-    logo_label.image = logo_photo
-    logo_label.pack(pady=(0, 10))
+# --- Load and display the left logo ---
+try:
+    logo_image_left = Image.open("logos//logo_left.png")
+    logo_image_left = logo_image_left.resize((167, 110), Image.Resampling.LANCZOS)
+    logo_photo_left = ImageTk.PhotoImage(logo_image_left)
+
+    logo_label_left = tk.Label(logo_frame, image=logo_photo_left, bg="#f0f0f0")
+    logo_label_left.image = logo_photo_left
+    logo_label_left.pack(side="left", padx=(20, 10))  # Pack on the left
 
 except FileNotFoundError:
-    print("Warning: logo.png not found. The application will run without a logo.")
+    print("Warning: logo_left.png not found.")
 except Exception as e:
-    print(f"An error occurred while loading the logo: {e}")
-### ---------------------- ###
+    print(f"An error occurred loading logo_left.png: {e}")
+
+# --- Load and display the right logo ---
+try:
+    logo_image_right = Image.open("logos//logo_right.png")
+    logo_image_right = logo_image_right.resize((153, 252), Image.Resampling.LANCZOS)
+    logo_photo_right = ImageTk.PhotoImage(logo_image_right)
+
+    logo_label_right = tk.Label(logo_frame, image=logo_photo_right, bg="#f0f0f0")
+    logo_label_right.image = logo_photo_right
+    logo_label_right.pack(side="right", padx=(10, 20))  # Pack on the right
+
+except FileNotFoundError:
+    print("Warning: logo_right.png not found.")
+except Exception as e:
+    print(f"An error occurred loading logo_right.png: {e}")
+### --------------------------- ###
 
 
 title_label = tk.Label(
-    main_frame, text="Attendance System", font=("Helvetica", 16, "bold"), bg="#f0f0f0"
+    main_frame,
+    text="Absensi Sholat Duhur\nSiswa SMAN 1 Paguyangan",  # Added \n for a new line
+    font=("Helvetica", 16, "bold"),
+    bg="#f0f0f0",
+    justify=tk.CENTER,  # Ensures the lines are centered relative to each other
 )
-title_label.pack(pady=(0, 20))
+title_label.pack(pady=(5, 20))  # This places it below the logos with some nice spacing
 
 btn_register = tk.Button(
     main_frame, text="Register New Student", command=register_face, width=30, height=2
@@ -420,6 +439,22 @@ tolerance_slider = tk.Scale(
     bg="#f0f0f0",
 )
 tolerance_slider.pack(fill="x", expand=True)
+
+### --- ADDED FOR DEVELOPER CREDIT --- ###
+# A simple label at the bottom for the developer credit
+credit_text = (
+    f"Developed by Tim Riset SMAN 1 Paguyangan © {datetime.datetime.now().year}"
+)
+credit_label = tk.Label(
+    main_frame,
+    text=credit_text,
+    font=("Helvetica", 8),  # Smaller font for the credit
+    fg="gray",  # Gray color to make it subtle
+    bg="#f0f0f0",
+)
+# Pack it to the bottom of the window
+credit_label.pack(side="bottom", pady=5)
+### ------------------------------------ ###
 
 load_encodings()
 root.mainloop()
