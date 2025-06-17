@@ -1,4 +1,5 @@
 click==8.1.8
+cmake==4.0.3
 colorama==0.4.6
 dlib==19.24.6
 et_xmlfile==2.0.0
