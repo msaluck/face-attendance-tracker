@@ -7,7 +7,6 @@ import shutil
 from tkinter import (
     messagebox,
     filedialog,
-    simpledialog,
     Toplevel,
     Text,
     Scrollbar,
