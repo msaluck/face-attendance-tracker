@@ -8,11 +8,13 @@ from tkinter import (
     messagebox,
     filedialog,
     Toplevel,
+    Text,
+    Scrollbar,
     Label,
     Entry,
     Button,
 )
-from tkinter import ttk
+from tkinter import ttk  # --- ADDED FOR TREEVIEW ---
 
 # --- ADDED FOR LOGO ---
 from PIL import Image, ImageTk
@@ -36,69 +38,22 @@ known_encodings = []
 known_person_data = []
 
 
-# --- CORE FUNCTIONS ---
+# --- CORE FUNCTIONS (No changes in this section) ---
 def save_encodings():
     """Saves the known face encodings and person data to a pickle file."""
     with open(encoding_file, "wb") as f:
         pickle.dump((known_encodings, known_person_data), f)
 
 
-# def load_encodings():
-#     """Loads face encodings and person data from a pickle file."""
-#     global known_encodings, known_person_data
-#     if os.path.exists(encoding_file):
-#         with open(encoding_file, "rb") as f:
-#             known_encodings, known_person_data = pickle.load(f)
-#     else:
-#         known_encodings = []
-#         known_person_data = []
-
-
-# --- CORRECTED GLOBAL FIX ---
 def load_encodings():
-    """
-    Loads face encodings and person data from a pickle file.
-    This version also sanitizes the data to remove corrupted/invalid entries,
-    fixing the root cause of the "string indices must be integers" error.
-    """
+    """Loads face encodings and person data from a pickle file."""
     global known_encodings, known_person_data
-
-    # Always start with fresh lists
-    clean_encodings = []
-    clean_person_data = []
-
     if os.path.exists(encoding_file):
-        try:
-            with open(encoding_file, "rb") as f:
-                # Load the potentially corrupted data from the file
-                loaded_encodings, loaded_person_data = pickle.load(f)
-
-            # Iterate through the loaded data and keep only the valid pairs
-            for i, person in enumerate(loaded_person_data):
-                # We only keep the item if it's a dictionary
-                if isinstance(person, dict):
-                    # And if its corresponding encoding exists
-                    if i < len(loaded_encodings):
-                        clean_person_data.append(person)
-                        clean_encodings.append(loaded_encodings[i])
-
-            # If we found and removed bad data, let the user know and save the clean file
-            if len(clean_person_data) != len(loaded_person_data):
-                print(
-                    f"Warning: Corrupted data was found and removed from {encoding_file}."
-                )
-                # Overwrite the old file with the cleaned data
-                with open(encoding_file, "wb") as f:
-                    pickle.dump((clean_encodings, clean_person_data), f)
-
-        except Exception as e:
-            # This handles cases where the file is completely unreadable
-            print(f"Error reading {encoding_file}: {e}. A new file will be used.")
-            # The lists will remain empty, which is safe
-
-    # Set the global variables to the cleaned lists
-    known_encodings = clean_encodings
-    known_person_data = clean_person_data
+        with open(encoding_file, "rb") as f:
+            known_encodings, known_person_data = pickle.load(f)
+    else:
+        known_encodings = []
+        known_person_data = []
 
 
 def mark_attendance(person_data):
@@ -307,36 +262,44 @@ def recognize_face():
     cv2.destroyAllWindows()
 
 
+# --- MODIFIED FUNCTION ---
 def show_logs():
     """Shows logs in a new, scrollable window using ttk.Treeview."""
     log_window = Toplevel(root)
     log_window.title("Attendance Logs")
-    log_window.geometry("800x500")
+    log_window.geometry("800x500")  # Made window wider for columns
 
+    # Frame to hold the treeview and scrollbar
     tree_frame = ttk.Frame(log_window, padding="10")
     tree_frame.pack(expand=True, fill="both")
 
+    # Define columns
     columns = ("nis", "name", "class", "date", "time")
     tree = ttk.Treeview(tree_frame, columns=columns, show="headings")
 
+    # Define headings
     tree.heading("nis", text="NIS")
     tree.heading("name", text="Name")
     tree.heading("class", text="Class")
     tree.heading("date", text="Date")
     tree.heading("time", text="Time")
 
+    # Define column properties for better layout
     tree.column("nis", width=100, anchor=tk.CENTER)
     tree.column("name", width=200)
     tree.column("class", width=100, anchor=tk.CENTER)
     tree.column("date", width=120, anchor=tk.CENTER)
     tree.column("time", width=100, anchor=tk.CENTER)
 
+    # Add a vertical scrollbar
     scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=tree.yview)
     tree.configure(yscrollcommand=scrollbar.set)
 
+    # Use grid layout manager for the tree and scrollbar
     tree.grid(row=0, column=0, sticky="nsew")
     scrollbar.grid(row=0, column=1, sticky="ns")
 
+    # Make the treeview column and row expandable
     tree_frame.grid_rowconfigure(0, weight=1)
     tree_frame.grid_columnconfigure(0, weight=1)
 
@@ -344,6 +307,7 @@ def show_logs():
     log_file_path = attendance_xlsx if file_format == "xlsx" else attendance_csv
 
     if not os.path.exists(log_file_path):
+        # Display a message inside the treeview if no file is found
         tree.insert("", tk.END, values=("No attendance records found.", "", "", "", ""))
         return
 
@@ -353,71 +317,23 @@ def show_logs():
             wb = load_workbook(log_file_path)
             ws = wb.active
             for row in ws.iter_rows(values_only=True):
+                # Ensure all cells are strings, handle None values
                 content.append([str(cell) if cell is not None else "" for cell in row])
-        else:
+        else:  # csv
             with open(log_file_path, "r", newline="") as f:
                 reader = csv.reader(f)
                 for row in reader:
                     content.append(row)
 
         if content:
+            # Insert data into the treeview, skipping the header row (content[0])
             for row_data in content[1:]:
-                if len(row_data) >= 5:
+                if len(row_data) >= 5:  # Ensure row has enough columns
                     tree.insert("", tk.END, values=row_data[:5])
     except Exception as e:
         messagebox.showerror(
             "Error", f"Failed to read log file: {e}", parent=log_window
         )
-
-
-# --- CORRECTED FUNCTION ---
-def show_registered_students():
-    """
-    Shows all registered students in a new window using ttk.Treeview.
-    This version safely handles corrupted data in the pickle file.
-    """
-    reg_window = Toplevel(root)
-    reg_window.title("Registered Students")
-    reg_window.geometry("600x400")
-    reg_window.grab_set()
-
-    tree_frame = ttk.Frame(reg_window, padding="10")
-    tree_frame.pack(expand=True, fill="both")
-
-    columns = ("nis", "name", "class")
-    tree = ttk.Treeview(tree_frame, columns=columns, show="headings")
-
-    tree.heading("nis", text="NIS (Student ID)")
-    tree.heading("name", text="Name")
-    tree.heading("class", text="Class")
-
-    tree.column("nis", width=120, anchor=tk.CENTER)
-    tree.column("name", width=250)
-    tree.column("class", width=100, anchor=tk.CENTER)
-
-    scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=tree.yview)
-    tree.configure(yscrollcommand=scrollbar.set)
-
-    tree.grid(row=0, column=0, sticky="nsew")
-    scrollbar.grid(row=0, column=1, sticky="ns")
-    tree_frame.grid_rowconfigure(0, weight=1)
-    tree_frame.grid_columnconfigure(0, weight=1)
-
-    # --- FIX IS HERE ---
-    # Filter the data to only include valid dictionaries, preventing crashes
-    valid_data = [item for item in known_person_data if isinstance(item, dict)]
-
-    if not valid_data:
-        tree.insert("", tk.END, values=("No students registered yet.", "", ""))
-    else:
-        # Sort using .get() for safety, in case a key is missing
-        sorted_data = sorted(valid_data, key=lambda item: item.get("name", ""))
-        for person in sorted_data:
-            # Use .get() again for safe access when populating the tree
-            nis = person.get("nis", "")
-            name = person.get("name", "")
-            class_ = person.get("class", "")
-            tree.insert("", tk.END, values=(nis, name, class_))
 
 
 def export_logs():
@@ -447,8 +363,7 @@ def export_logs():
 # --- GUI SETUP ---
 root = tk.Tk()
 root.title("Face Recognition Attendance")
-# Adjusted height to make space for the new button
-root.geometry("450x680")
+root.geometry("450x650")  # Increased height for the logo
 root.configure(bg="#f0f0f0")
 
 main_frame = tk.Frame(root, bg="#f0f0f0", padx=20, pady=20)
@@ -456,12 +371,19 @@ main_frame.pack(expand=True, fill="both")
 
 ### --- ADDED FOR LOGO --- ###
 try:
+    # Load the logo image
     logo_image = Image.open("logos//logo_right_new.png")
+    # Resize the image for the GUI
     logo_image = logo_image.resize((160, 154), Image.Resampling.LANCZOS)
+    # Convert the image for Tkinter
     logo_photo = ImageTk.PhotoImage(logo_image)
+
+    # Create a label to display the logo
     logo_label = tk.Label(main_frame, image=logo_photo, bg="#f0f0f0")
+    # IMPORTANT: Keep a reference to the image to prevent it from being garbage-collected
     logo_label.image = logo_photo
     logo_label.pack(pady=(0, 10))
+
 except FileNotFoundError:
     print("Warning: logo.png not found. The application will run without a logo.")
 except Exception as e:
@@ -471,28 +393,17 @@ except Exception as e:
 
 title_label = tk.Label(
     main_frame,
-    text="Absensi Sholat Duhur\nSiswa SMAN 1 Paguyangan",
+    text="Absensi Sholat Duhur\nSiswa SMAN 1 Paguyangan",  # Added \n for a new line
     font=("Helvetica", 16, "bold"),
     bg="#f0f0f0",
-    justify=tk.CENTER,
+    justify=tk.CENTER,  # Ensures the lines are centered relative to each other
 )
-title_label.pack(pady=(5, 20))
+title_label.pack(pady=(5, 20))  # This places it below the logos with some nice spacing
 
 btn_register = tk.Button(
     main_frame, text="Register New Student", command=register_face, width=30, height=2
 )
 btn_register.pack(pady=5)
-
-# --- NEW BUTTON ADDED HERE ---
-btn_show_registered = tk.Button(
-    main_frame,
-    text="Show Registered Students",
-    command=show_registered_students,
-    width=30,
-    height=2,
-)
-btn_show_registered.pack(pady=5)
-# -----------------------------
 
 btn_recognize = tk.Button(
     main_frame,
@@ -541,19 +452,20 @@ tolerance_slider = tk.Scale(
 tolerance_slider.pack(fill="x", expand=True)
 
 ### --- ADDED FOR DEVELOPER CREDIT --- ###
+# A simple label at the bottom for the developer credit
 credit_text = (
     f"Developed by Tim Riset SMAN 1 Paguyangan © {datetime.datetime.now().year}"
 )
 credit_label = tk.Label(
     main_frame,
     text=credit_text,
-    font=("Helvetica", 8),
-    fg="gray",
+    font=("Helvetica", 8),  # Smaller font for the credit
+    fg="gray",  # Gray color to make it subtle
     bg="#f0f0f0",
 )
+# Pack it to the bottom of the window
 credit_label.pack(side="bottom", pady=5)
 ### ------------------------------------ ###
 
-# Load existing data when the application starts
 load_encodings()
 root.mainloop()
